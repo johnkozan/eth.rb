@@ -21,6 +21,7 @@ What you get:
 - [x] EIP-155 Replay protection with Chain IDs (with presets)
 - [x] EIP-191 Ethereum Signed Messages (with prefix and type)
 - [x] EIP-712 Ethereum Signed Type Data
+- [x] EIP-1271 Smart-Contract Authentification
 - [x] EIP-1559 Ethereum Type-2 Transactions (with priority fee and max gas fee)
 - [x] EIP-2028 Call-data intrinsic gas cost estimates (plus access lists)
 - [x] EIP-2718 Ethereum Transaction Envelopes (and types)
@@ -29,11 +30,7 @@ What you get:
 - [x] RLP-Encoder and Decoder (including sedes)
 - [x] RPC-Client (IPC/HTTP) for Execution-Layer APIs
 - [x] Solidity bindings (compile contracts from Ruby)
-
-Soon (TM):
-- [ ] Smart Contract Support
-- [ ] EIP-1271 Smart-Contract Authentification
-- [ ] HD-Wallets (BIP-32) and Mnemonics (BIP-39)
+- [x] Full smart-contract support (deploy, transact, and call)
 
 Contents:
 - [1. Installation](#1-installation)
@@ -45,8 +42,8 @@ Contents:
   - [2.5. Ethereum ABI Encoder and Decoder](#25-ethereum-abi-encoder-and-decoder)
   - [2.6. Ethereum RLP Encoder and Decoder](#26-ethereum-rlp-encoder-and-decoder)
   - [2.7. Ethereum RPC-Client](#27-ethereum-rpc-client)
-  - [2.8 Solidity Compiler Bindings](#28-solidity-compiler-bindings)
-  - [2.9 Interact with Smart Contract](#29-interact-with-smart-contract)
+  - [2.8. Solidity Compiler Bindings](#28-solidity-compiler-bindings)
+  - [2.9. Interact with Smart Contract](#29-interact-with-smart-contract)
 - [3. Documentation](#3-documentation)
 - [4. Testing](#4-testing)
 - [5. Contributing](#5-contributing)
@@ -232,7 +229,7 @@ cli.get_nonce cli.eth_coinbase["result"]
 
 Check out `Eth::Api` for a list of supported RPC-APIs or consult the [Documentation](https://q9f.github.io/eth.rb/) for more details.
 
-### 2.8 Solidity Compiler Bindings
+### 2.8. Solidity Compiler Bindings
 Link a system-level Solidity compiler (`solc`) to your Ruby library and compile contracts.
 
 ```ruby
@@ -254,21 +251,47 @@ contract = solc.compile "spec/fixtures/contracts/greeter.sol"
 
 The `contract["Greeter"]["bin"]` could be directly used to deploy the contract as `Eth::Tx` payload. Check out the [Documentation](https://q9f.github.io/eth.rb/) for more details.
 
-### 2.9 Interact with Smart Contract
+### 2.9. Interact with Smart Contract
 
-Functions to interact with smart contract.
+Create, compile, and deploy smart contracts.
 
 ```ruby
-contract = Eth::Contract.create(file: 'spec/fixtures/contracts/dummy.sol')
+contract = Eth::Contract.from_file(file: 'spec/fixtures/contracts/dummy.sol')
 # => #<Eth::Contract::Dummy:0x00007fbeee936598>
 cli = Eth::Client.create "/tmp/geth.ipc"
 # => #<Eth::Client::Ipc:0x00007fbeee946128 @gas_limit=21000, @id=0, @max_fee_per_gas=0.2e11, @max_priority_fee_per_gas=0, @path="/tmp/geth.ipc">
 address = cli.deploy_and_wait(contract)
 # => "0x2f2faa160420cee087ded96bad52475147136bd8"
+```
+
+Transact with or call the deployed contract.
+
+```ruby
 cli.transact_and_wait(contract, "set", 1234)
 # => "0x49ca4c0a5729da19a1d2574de9a444a9cd3219bdad81745b54f9cf3bb83b6a06"
 cli.call(contract, "get")
 # => 1234
+```
+
+Or call an existing contract, e.g., the ENS registry:
+
+```ruby
+ens_registry_abi = '[{"inputs":[{"internalType":"contract ENS","name":"_old","type":"address"}],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"bytes32","name":"node","type":"bytes32"},{"indexed":true,"internalType":"bytes32","name":"label","type":"bytes32"},{"indexed":false,"internalType":"address","name":"owner","type":"address"}],"name":"NewOwner","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"bytes32","name":"node","type":"bytes32"},{"indexed":false,"internalType":"address","name":"resolver","type":"address"}],"name":"NewResolver","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"bytes32","name":"node","type":"bytes32"},{"indexed":false,"internalType":"uint64","name":"ttl","type":"uint64"}],"name":"NewTTL","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"bytes32","name":"node","type":"bytes32"},{"indexed":false,"internalType":"address","name":"owner","type":"address"}],"name":"Transfer","type":"event"},{"constant":true,"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"old","outputs":[{"internalType":"contract ENS","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"bytes32","name":"node","type":"bytes32"}],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"bytes32","name":"node","type":"bytes32"}],"name":"recordExists","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"bytes32","name":"node","type":"bytes32"}],"name":"resolver","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"bytes32","name":"node","type":"bytes32"},{"internalType":"address","name":"owner","type":"address"}],"name":"setOwner","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"bytes32","name":"node","type":"bytes32"},{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"resolver","type":"address"},{"internalType":"uint64","name":"ttl","type":"uint64"}],"name":"setRecord","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"bytes32","name":"node","type":"bytes32"},{"internalType":"address","name":"resolver","type":"address"}],"name":"setResolver","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"bytes32","name":"node","type":"bytes32"},{"internalType":"bytes32","name":"label","type":"bytes32"},{"internalType":"address","name":"owner","type":"address"}],"name":"setSubnodeOwner","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"bytes32","name":"node","type":"bytes32"},{"internalType":"bytes32","name":"label","type":"bytes32"},{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"resolver","type":"address"},{"internalType":"uint64","name":"ttl","type":"uint64"}],"name":"setSubnodeRecord","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"bytes32","name":"node","type":"bytes32"},{"internalType":"uint64","name":"ttl","type":"uint64"}],"name":"setTTL","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"internalType":"bytes32","name":"node","type":"bytes32"}],"name":"ttl","outputs":[{"internalType":"uint64","name":"","type":"uint64"}],"payable":false,"stateMutability":"view","type":"function"}]'
+ens_registry_address = "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e"
+ens_registry_name = "ENSRegistryWithFallback"
+ens_registry = Eth::Contract.from_abi(name: ens_registry_name, address: ens_registry_address, abi: ens_registry_abi)
+# => #<Eth::Contract::ENSRegistryWithFallback:0x000055bece570980>
+ens_registry.address
+# => "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e"
+cli.call(ens_registry, "old")
+# => "0x112234455c3a32fd11230c42e7bccd4a84e02010"
+```
+
+The gem also comes with an EIP-1271 smart-contract authentification interface.
+
+```ruby
+cli.is_valid_signature contract, hash, signature
+# => true
 ```
 
 ## 3. Documentation
