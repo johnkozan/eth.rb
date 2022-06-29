@@ -167,10 +167,13 @@ module Eth
 
           # booleans cannot have any suffix
           raise ParseError, "Bool cannot have suffix" unless sub_type.empty?
+        when "tuple"
+          # 
+
         else
 
           # we cannot parse arbitrary types such as 'decimal' or 'hex'
-          raise ParseError, "Unknown base type"
+          raise ParseError, "Unknown base type #{base_type}"
         end
       end
     end
