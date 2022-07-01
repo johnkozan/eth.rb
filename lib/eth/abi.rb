@@ -74,7 +74,7 @@ module Eth
     # @return [String] the encoded type.
     # @raise [EncodingError] if value does not match type.
     def encode_type(type, arg)
-      if %w(string bytes).include? type.base_type and type.sub_type.empty?
+      if %w(string bytes).include? type.base_type and type.sub_type.empty? and type.dimensions.empty?
         raise EncodingError, "Argument must be a String" unless arg.instance_of? String
 
         # encodes strings and bytes
@@ -89,10 +89,24 @@ module Eth
         head += encode_type Type.size_type, arg.size
         nested_sub = type.nested_sub
         nested_sub_size = type.nested_sub.size
-        arg.size.times do |i|
 
-          # ref https://github.com/ethereum/tests/issues/691
-          raise NotImplementedError, "Encoding dynamic arrays with nested dynamic sub-types is not implemented for ABI." if nested_sub.is_dynamic?
+        # calculate offsets
+        if %w(string bytes).include?(type.base_type) && type.sub_type.empty?
+          offset = 0
+          arg.size.times do |i|
+            if i == 0
+              offset = arg.size * 32
+            else
+              number_of_words = ((arg[i - 1].size + 32 - 1) / 32).floor
+              total_bytes_length = number_of_words * 32
+              offset += total_bytes_length + 32
+            end
+
+            head += encode_type Type.size_type, offset
+          end
+        end
+
+        arg.size.times do |i|
           head += encode_type nested_sub, arg[i]
         end
         return "#{head}#{tail}"
@@ -306,6 +320,7 @@ module Eth
 
     # Properly encodes unsigned integers.
     def encode_uint(arg, type)
+      raise ArgumentError, "Don't know how to handle this input." unless arg.is_a? Numeric
       raise ValueOutOfBounds, "Number out of range: #{arg}" if arg > Constant::UINT_MAX or arg < Constant::UINT_MIN
       real_size = type.sub_type.to_i
       i = arg.to_i
@@ -315,6 +330,7 @@ module Eth
 
     # Properly encodes signed integers.
     def encode_int(arg, type)
+      raise ArgumentError, "Don't know how to handle this input." unless arg.is_a? Numeric
       raise ValueOutOfBounds, "Number out of range: #{arg}" if arg > Constant::INT_MAX or arg < Constant::INT_MIN
       real_size = type.sub_type.to_i
       i = arg.to_i
@@ -330,6 +346,7 @@ module Eth
 
     # Properly encodes unsigned fixed-point numbers.
     def encode_ufixed(arg, type)
+      raise ArgumentError, "Don't know how to handle this input." unless arg.is_a? Numeric
       high, low = type.sub_type.split("x").map(&:to_i)
       raise ValueOutOfBounds, arg unless arg >= 0 and arg < 2 ** high
       return Util.zpad_int((arg * 2 ** low).to_i)
@@ -337,6 +354,7 @@ module Eth
 
     # Properly encodes signed fixed-point numbers.
     def encode_fixed(arg, type)
+      raise ArgumentError, "Don't know how to handle this input." unless arg.is_a? Numeric
       high, low = type.sub_type.split("x").map(&:to_i)
       raise ValueOutOfBounds, arg unless arg >= -2 ** (high - 1) and arg < 2 ** (high - 1)
       i = (arg * 2 ** low).to_i
@@ -346,6 +364,8 @@ module Eth
     # Properly encodes byte-strings.
     def encode_bytes(arg, type)
       raise EncodingError, "Expecting String: #{arg}" unless arg.instance_of? String
+      arg = handle_hex_string arg, type
+
       if type.sub_type.empty?
         size = Util.zpad_int arg.size
         padding = Constant::BYTE_ZERO * (Util.ceil32(arg.size) - arg.size)
@@ -402,6 +422,24 @@ module Eth
         return Util.zpad_hex arg[2..-1]
       else
         raise EncodingError, "Could not parse address: #{arg}"
+      end
+    end
+
+    # The ABI encoder needs to be able to determine between a hex `"123"`
+    # and a binary `"123"` string.
+    def handle_hex_string(arg, type)
+      if Util.is_prefixed? arg or
+         (arg.size === type.sub_type.to_i * 2 and Util.is_hex? arg)
+
+        # There is no way telling whether a string is hex or binary with certainty
+        # in Ruby. Therefore, we assume a `0x` prefix to indicate a hex string.
+        # Additionally, if the string size is exactly the double of the expected
+        # binary size, we can assume a hex value.
+        return Util.hex_to_bin arg
+      else
+
+        # Everything else will be assumed binary or raw string.
+        return arg.b
       end
     end
   end

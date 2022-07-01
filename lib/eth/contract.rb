@@ -109,6 +109,7 @@ module Eth
         def_delegators :parent, :events
         def_delegators :parent, :address, :address=
         def_delegator :parent, :functions
+        def_delegator :parent, :constructor_inputs
         define_method :parent do
           parent
         end
@@ -133,3 +134,10 @@ module Eth
     end
   end
 end
+
+# Load the contract/* libraries
+require "eth/contract/event"
+require "eth/contract/function"
+require "eth/contract/function_input"
+require "eth/contract/function_output"
+require "eth/contract/initializer"

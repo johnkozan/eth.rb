@@ -41,6 +41,9 @@ module Eth
     # Chain ID for Gnosis mainnet.
     XDAI = 100.freeze
 
+    # Chain ID for the Polygon Matic mainnet.
+    MATIC = 137.freeze
+
     # Chain ID for Arbitrum mainnet.
     ARBITRUM = 42161.freeze
 
@@ -76,6 +79,9 @@ module Eth
 
     # Chain ID for Optimistic Goerli testnet.
     GOERLI_OPTIMISM = 420.freeze
+
+    # Chain ID for the Polygon Mumbai testnet.
+    MUMBAI = 80001.freeze
 
     # Chain ID for Arbitrum Rinkeby testnet.
     RINKEBY_ARBITRUM = 421611.freeze

@@ -154,16 +154,15 @@ module Eth
     #
     # @overload deploy(contract)
     #   @param contract [Eth::Contract] contracts to deploy.
-    # @overload deploy(contract, sender_key)
+    # @overload deploy(contract, *args, **kwargs)
     #   @param contract [Eth::Contract] contracts to deploy.
-    #   @param sender_key [Eth::Key] the sender private key.
-    # @overload deploy(contract, sender_key, legacy)
-    #   @param contract [Eth::Contract] contracts to deploy.
-    #   @param sender_key [Eth::Key] the sender private key.
-    #   @param legacy [Boolean] enables legacy transactions (pre-EIP-1559).
+    #   *args Optional variable constructor parameter list
+    #   **sender_key [Eth::Key] the sender private key.
+    #   **legacy [Boolean] enables legacy transactions (pre-EIP-1559).
+    #   **gas_limit [Integer] optional gas limit override for deploying the contract.
     # @return [String] the contract address.
-    def deploy_and_wait(contract, sender_key: nil, legacy: false)
-      hash = wait_for_tx(deploy(contract, sender_key: sender_key, legacy: legacy))
+    def deploy_and_wait(contract, *args, **kwargs)
+      hash = wait_for_tx(deploy(contract, *args, **kwargs))
       addr = eth_get_transaction_receipt(hash)["result"]["contractAddress"]
       contract.address = Address.new(addr).to_s
     end
@@ -173,25 +172,33 @@ module Eth
     #
     # @overload deploy(contract)
     #   @param contract [Eth::Contract] contracts to deploy.
-    # @overload deploy(contract, sender_key)
+    # @overload deploy(contract, *args, **kwargs)
     #   @param contract [Eth::Contract] contracts to deploy.
-    #   @param sender_key [Eth::Key] the sender private key.
-    # @overload deploy(contract, sender_key, legacy)
-    #   @param contract [Eth::Contract] contracts to deploy.
-    #   @param sender_key [Eth::Key] the sender private key.
-    #   @param legacy [Boolean] enables legacy transactions (pre-EIP-1559).
+    #   *args Optional variable constructor parameter list
+    #   **sender_key [Eth::Key] the sender private key.
+    #   **legacy [Boolean] enables legacy transactions (pre-EIP-1559).
+    #   **gas_limit [Integer] optional gas limit override for deploying the contract.
     # @return [String] the transaction hash.
     # @raise [ArgumentError] in case the contract does not have any source.
-    def deploy(contract, sender_key: nil, legacy: false)
+    def deploy(contract, *args, **kwargs)
       raise ArgumentError, "Cannot deploy contract without source or binary!" if contract.bin.nil?
-      gas_limit = Tx.estimate_intrinsic_gas(contract.bin) + Tx::CREATE_GAS
+      raise ArgumentError, "Missing contract constructor params!" if contract.constructor_inputs.length != args.length
+      data = contract.bin
+      unless args.empty?
+        data += encode_constructor_params(contract, args)
+      end
+      gas_limit = if kwargs[:gas_limit]
+          kwargs[:gas_limit]
+        else
+          Tx.estimate_intrinsic_gas(data) + Tx::CREATE_GAS
+        end
       params = {
         value: 0,
         gas_limit: gas_limit,
         chain_id: chain_id,
-        data: contract.bin,
+        data: data,
       }
-      if legacy
+      if kwargs[:legacy]
         params.merge!({
           gas_price: max_fee_per_gas,
         })
@@ -201,17 +208,17 @@ module Eth
           max_gas_fee: max_fee_per_gas,
         })
       end
-      unless sender_key.nil?
-        # use the provided key as sender and signer
+      unless kwargs[:sender_key].nil?
+        # Uses the provided key as sender and signer
         params.merge!({
-          from: sender_key.address,
-          nonce: get_nonce(sender_key.address),
+          from: kwargs[:sender_key].address,
+          nonce: get_nonce(kwargs[:sender_key].address),
         })
         tx = Eth::Tx.new(params)
-        tx.sign sender_key
+        tx.sign kwargs[:sender_key]
         return eth_send_raw_transaction(tx.hex)["result"]
       else
-        # use the default account as sender and external signer
+        # Uses the default account as sender and external signer
         params.merge!({
           from: default_account,
           nonce: get_nonce(default_account),
@@ -230,18 +237,19 @@ module Eth
     #   @param contract [Eth::Contract] subject contract to call.
     #   @param function_name [String] method name to be called.
     #   @param value [Integer|String] function arguments.
-    # @overload call(contract, function_name, value, sender_key, legacy)
+    # @overload call(contract, function_name, value, sender_key, legacy, gas_limit)
     #   @param contract [Eth::Contract] subject contract to call.
     #   @param function_name [String] method name to be called.
     #   @param value [Integer|String] function arguments.
     #   @param sender_key [Eth::Key] the sender private key.
     #   @param legacy [Boolean] enables legacy transactions (pre-EIP-1559).
+    #   @param gas_limit [Integer] optional gas limit override for deploying the contract.
     # @return [Object] returns the result of the call.
     def call(contract, function_name, *args, **kwargs)
       func = contract.functions.select { |func| func.name == function_name }[0]
       raise ArgumentError, "function_name does not exist!" if func.nil?
       output = call_raw(contract, func, *args, **kwargs)
-      if output.length == 1
+      if output&.length == 1
         return output[0]
       else
         return output
@@ -258,16 +266,21 @@ module Eth
     #   @param contract [Eth::Contract] subject contract to call.
     #   @param function_name [String] method name to be called.
     #   @param value [Integer|String] function arguments.
-    # @overload transact(contract, function_name, value, sender_key, legacy, address)
+    # @overload transact(contract, function_name, value, sender_key, legacy, address, gas_limit)
     #   @param contract [Eth::Contract] subject contract to call.
     #   @param function_name [String] method name to be called.
     #   @param value [Integer|String] function arguments.
     #   @param sender_key [Eth::Key] the sender private key.
     #   @param legacy [Boolean] enables legacy transactions (pre-EIP-1559).
     #   @param address [String] contract address.
+    #   @param gas_limit [Integer] optional gas limit override for deploying the contract.
     # @return [Object] returns the result of the call.
     def transact(contract, function_name, *args, **kwargs)
-      gas_limit = Tx.estimate_intrinsic_gas(contract.bin) + Tx::CREATE_GAS
+      gas_limit = if kwargs[:gas_limit]
+          kwargs[:gas_limit]
+        else
+          Tx.estimate_intrinsic_gas(contract.bin) + Tx::CREATE_GAS
+        end
       fun = contract.functions.select { |func| func.name == function_name }[0]
       params = {
         value: 0,
@@ -392,7 +405,11 @@ module Eth
 
     # Non-transactional function call called from call().
     def call_raw(contract, func, *args, **kwargs)
-      gas_limit = Tx.estimate_intrinsic_gas(contract.bin) + Tx::CREATE_GAS
+      gas_limit = if kwargs[:gas_limit]
+          kwargs[:gas_limit]
+        else
+          Tx.estimate_intrinsic_gas(contract.bin) + Tx::CREATE_GAS
+        end
       params = {
         gas_limit: gas_limit,
         chain_id: chain_id,
@@ -412,7 +429,7 @@ module Eth
         })
       end
       unless kwargs[:sender_key].nil?
-        # use the provided key as sender and signer
+        # Uses the provided key as sender and signer
         params.merge!({
           from: kwargs[:sender_key].address,
           nonce: get_nonce(kwargs[:sender_key].address),
@@ -422,6 +439,7 @@ module Eth
       end
       raw_result = eth_call(params)["result"]
       types = func.outputs.map { |i| i.type }
+      return nil if raw_result == "0x"
       Eth::Abi.decode(types, raw_result)
     end
 
@@ -430,6 +448,12 @@ module Eth
       types = fun.inputs.map { |i| i.type }
       encoded_str = Util.bin_to_hex(Eth::Abi.encode(types, args))
       "0x" + fun.signature + (encoded_str.empty? ? "0" * 64 : encoded_str)
+    end
+
+    # Encodes constructor params
+    def encode_constructor_params(contract, args)
+      types = contract.constructor_inputs.map { |input| input.type }
+      Util.bin_to_hex(Eth::Abi.encode(types, args))
     end
 
     # Prepares parameters and sends the command to the client.
@@ -469,3 +493,7 @@ module Eth
     end
   end
 end
+
+# Load the client/* libraries
+require "eth/client/http"
+require "eth/client/ipc"

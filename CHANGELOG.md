@@ -1,6 +1,49 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.5.6]
+### Added
+- Eth/client: Add gas limit override option for contract deployments ([#128](https://github.com/q9f/eth.rb/pull/128))
+- Eth/abi: support dynamic array encoding ([#122](https://github.com/q9f/eth.rb/pull/122))
+
+### Changed
+- Eth/client: Include contract constructor args when estimating intrinsic gas ([#111](https://github.com/q9f/eth.rb/pull/111))
+- Eth/abi: allow parsing numerics from string inputs ([#112](https://github.com/q9f/eth.rb/pull/112))
+- Eth/signature: fix prefix_message for multibyte characters ([#120](https://github.com/q9f/eth.rb/pull/120))
+- Eth/abi: raise error if numeric comes as string ([#114](https://github.com/q9f/eth.rb/pull/114))
+- Gem: bump version to 0.5.6 ([#130](https://github.com/q9f/eth.rb/pull/130))
+
+## [0.5.5]
+### Added
+- Eth/contract: Add missing def_delegator for constructor_inputs ([#96](https://github.com/q9f/eth.rb/pull/96))
+- Eth/client: Enable passing in constructor params to deploy ([#106](https://github.com/q9f/eth.rb/pull/106))
+- Eth/chain: add matic/mumbai ([#107](https://github.com/q9f/eth.rb/pull/107))
+
+### Changed
+- Gem: bump version to 0.5.5 ([#89](https://github.com/q9f/eth.rb/pull/89))
+- Docs: update changelog for 0.5.4 ([#90](https://github.com/q9f/eth.rb/pull/90))
+- Ci: add weekly dependency checks ([#91](https://github.com/q9f/eth.rb/pull/91))
+- Build(deps): bump github/codeql-action from 1 to 2 ([#92](https://github.com/q9f/eth.rb/pull/92))
+- Build(deps): bump actions/checkout from 2 to 3 ([#93](https://github.com/q9f/eth.rb/pull/93))
+- Build(deps): bump JamesIves/github-pages-deploy-action from 4.1.7 to 4.3.3 ([#94](https://github.com/q9f/eth.rb/pull/94))
+- Eth/abi: fix handling of hex values for byte strings ([#100](https://github.com/q9f/eth.rb/pull/100))
+- Eth/abi: add a testcase for handling hex and bin strings ([#101](https://github.com/q9f/eth.rb/pull/101))
+- Eth/abi: Fix Eth::Abi::DecodingError in call method ([#105](https://github.com/q9f/eth.rb/pull/105))
+- Eth: some docs and cleanups ([#108](https://github.com/q9f/eth.rb/pull/108))
+
+## [0.5.4]
+### Added
+- Eth/client: method for eip-1271 ([#80](https://github.com/q9f/eth.rb/pull/80))
+
+### Changed
+- Docs: update changelog ([#77](https://github.com/q9f/eth.rb/pull/77))
+- Gem: bump version to 0.5.4 ([#78](https://github.com/q9f/eth.rb/pull/78))
+- Ci: bump ruby version to 3.1 on ci ([#79](https://github.com/q9f/eth.rb/pull/79))
+- Fix typos ([#81](https://github.com/q9f/eth.rb/pull/81))
+- Eth/contract: allow creating from file, abi, bin ([#83](https://github.com/q9f/eth.rb/pull/83))
+- Eth/client: fix account requirement for client.call() ([#85](https://github.com/q9f/eth.rb/pull/85))
+- Add dependency support for openssl 2.2 and greater, including 3.x ([#88](https://github.com/q9f/eth.rb/pull/88))
+
 ## [0.5.3]
 ### Added
 - Smart contract support ([#68](https://github.com/q9f/eth.rb/pull/68))

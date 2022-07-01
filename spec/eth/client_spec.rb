@@ -93,9 +93,20 @@ describe Client do
       expect(address).to start_with "0x"
     end
 
+    it "deploys the contract with a gas limit override" do
+      address = geth_dev_http.deploy_and_wait(contract, gas_limit: 1_000_000)
+      expect(address).to start_with "0x"
+    end
+
+    it "deploy the contract with constructor params" do
+      contract = Contract.from_file(file: "spec/fixtures/contracts/greeter.sol", contract_index: 0)
+      address = geth_dev_http.deploy_and_wait(contract, "Hello!")
+      expect(address).to start_with "0x"
+    end
+
     it "can deploy and call an ens registry" do
       ens_registry = Contract.from_bin(bin: ens_registry_bin.strip, abi: ens_registry_abi.strip, name: "ENSRegistryWithFallback")
-      ens_address = geth_dev_ipc.deploy_and_wait(ens_registry)
+      ens_address = geth_dev_ipc.deploy_and_wait(ens_registry, "0x112234455c3a32fd11230c42e7bccd4a84e02010")
       expect(ens_registry).to be_instance_of(Eth::Contract::ENSRegistryWithFallback)
       expect(ens_registry.address).to eq Address.new(ens_address).to_s
       expect(geth_dev_ipc.call(ens_registry, "old")).to eq "0x112234455c3a32fd11230c42e7bccd4a84e02010"
@@ -106,11 +117,25 @@ describe Client do
     subject(:test_key) { Key.new }
     subject(:contract) { Eth::Contract.from_file(file: "spec/fixtures/contracts/dummy.sol") }
     subject(:test_contract) { Eth::Contract.from_file(file: "spec/fixtures/contracts/simple_registry.sol") }
+    let(:erc20_abi_file) { File.read "spec/fixtures/abi/ERC20.json" }
+    let(:address) { Eth::Address.new("0xd496b23d61f88a8c7758fca7560dcfac7b3b01f9").address }
+    subject(:erc20_abi) { JSON.parse erc20_abi_file }
+    subject(:erc20_contract) { Eth::Contract.from_abi(abi: erc20_abi, name: "ERC20", address: address) }
 
     it "call function name" do
       geth_dev_http.deploy_and_wait(contract)
       result = geth_dev_http.call(contract, "get")
       expect(result).to eq(0)
+    end
+
+    it "calls a function with gas_limit override" do
+      geth_dev_http.deploy_and_wait(contract)
+      result = geth_dev_http.call(contract, "get", gas_limit: 60_000)
+      expect(result).to eq(0)
+    end
+
+    it "return nil if raw result is 0x" do
+      expect(geth_dev_http.call(erc20_contract, "balanceOf", address)).to be_nil
     end
 
     it "called function name not defined" do
@@ -137,6 +162,21 @@ describe Client do
       response = geth_dev_http.call(test_contract, "get")
       expect(response).to eq([12, 24])
     end
+
+    it "transacts with gas limit override" do
+      address = geth_dev_http.deploy_and_wait(test_contract)
+      txn_hash = geth_dev_http.transact_and_wait(test_contract, "set", 12, 24, address: address, gas_limit: 100_000_000)
+      response = geth_dev_http.eth_get_transaction_by_hash(txn_hash)
+      response = geth_dev_http.call(test_contract, "get")
+      expect(response).to eq([12, 24])
+    end
+
+    it "calls the function with constructor params" do
+      contract = Contract.from_file(file: "spec/fixtures/contracts/greeter.sol", contract_index: 0)
+      address = geth_dev_http.deploy_and_wait(contract, "Hello!")
+      result = geth_dev_http.call(contract, "greet", address: address)
+      expect(result).to eq("Hello!")
+    end
   end
 
   describe ".transact .transact_and_wait" do
@@ -152,6 +192,14 @@ describe Client do
       expect(response).to eq(42)
     end
 
+    it "the value can be set with the set function, overwriting constructor params" do
+      contract = Contract.from_file(file: "spec/fixtures/contracts/greeter.sol", contract_index: 0)
+      address = geth_dev_http.deploy_and_wait(contract, "Hello!")
+      geth_dev_http.transact_and_wait(contract, "setGreeting", "How are you?", address: address)
+      response = geth_dev_http.call(contract, "greet")
+      expect(response).to eq("How are you?")
+    end
+
     it "transact the function with key" do
       geth_dev_http.transfer_and_wait(test_key.address, 1337 * Unit::ETHER)
       address = geth_dev_http.deploy_and_wait(contract, sender_key: test_key)
@@ -162,6 +210,13 @@ describe Client do
     it "transact the function using legacy transactions" do
       address = geth_dev_http.deploy_and_wait(contract)
       response = geth_dev_http.transact_and_wait(contract, "set", 42, legacy: true, address: address)
+      expect(response).to start_with "0x"
+    end
+
+    it "transacts the function with constructor params" do
+      contract = Contract.from_file(file: "spec/fixtures/contracts/greeter.sol", contract_index: 0)
+      address = geth_dev_http.deploy_and_wait(contract, "Hello!")
+      response = geth_dev_http.transact_and_wait(contract, "setGreeting", "How are you?", address: address)
       expect(response).to start_with "0x"
     end
   end
