@@ -415,6 +415,9 @@ module Eth
         chain_id: chain_id,
         data: call_payload(func, args),
       }
+      if kwargs[:block_height]
+        params.merge!({ block_height: kwargs[:block_height]})
+      end
       if kwargs[:address] || contract.address
         params.merge!({ to: kwargs[:address] || contract.address })
       end
@@ -458,7 +461,16 @@ module Eth
 
     # Prepares parameters and sends the command to the client.
     def send_command(command, args)
-      args << "latest" if ["eth_getBalance", "eth_call"].include? command and args.length < 2
+      if ["eth_getBalance", "eth_call"].include? command
+        if args.last.is_a?(Hash) and args.last.has_key?(:block_height)
+          block_height = args.last.delete(:block_height)
+          args.reject! {|x| x == {}}
+          args.compact!
+          args << block_height
+        else
+          args << 'latest'
+        end
+      end
       payload = {
         jsonrpc: "2.0",
         method: command,
