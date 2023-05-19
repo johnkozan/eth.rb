@@ -223,6 +223,7 @@ module Eth
       "personal_signTransaction",
       "personal_unlockAccount",
       "personal_unpair",
+      "trace_transaction",
       "txpool_content",
       "txpool_contentFrom",
       "txpool_getContent",
