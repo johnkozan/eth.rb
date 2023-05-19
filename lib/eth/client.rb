@@ -474,7 +474,7 @@ module Eth
       payload = {
         jsonrpc: "2.0",
         method: command,
-        params: marshal(args),
+        params: command.starts_with?('ots') ? args : marshal(args),
         id: next_id,
       }
       output = JSON.parse(send(payload.to_json))
